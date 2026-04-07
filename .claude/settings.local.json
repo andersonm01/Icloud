@@ -9,7 +9,11 @@
       "Bash(rails runner:*)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
       "Bash(netstat -ano)",
-      "Bash(findstr :3000)"
+      "Bash(findstr :3000)",
+      "Bash(bundle lock:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m 'Add x86_64-linux platform to Gemfile.lock for Render deployment:*)",
+      "Bash(git push:*)"
     ]
   }
 }
